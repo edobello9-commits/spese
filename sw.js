@@ -1,6 +1,6 @@
 // Service worker: l'app funziona offline. Prima prova la rete (così gli
 // aggiornamenti arrivano), se manca la connessione usa la copia salvata.
-const CACHE = 'spese-v2';
+const CACHE = 'spese-v3';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

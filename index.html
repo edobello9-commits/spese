@@ -118,6 +118,7 @@ button{cursor:pointer}
 .stat dt{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .stat dd{margin:2px 0 0;font-weight:600;overflow-wrap:anywhere}
 .msg{color:var(--muted);font-size:.92rem;min-height:1.4em;margin:14px 0 0}
+.upd{position:fixed;left:16px;right:16px;top:max(12px,env(safe-area-inset-top,0px));z-index:40;background:var(--accent);color:var(--on-accent);padding:12px 14px;border-radius:12px;font-size:.92rem;text-align:center;box-shadow:var(--shadow);border:0;font-family:inherit}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(92px,calc(env(safe-area-inset-bottom,0px) + 82px));max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;z-index:30;font-size:.92rem;box-shadow:var(--shadow)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
 .card h3{margin:0 0 8px;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
@@ -1092,6 +1093,20 @@ $('#chips').addEventListener('click', e => {
   $('#fCat').value = c.dataset.cat; paintChips();
 });
 $('#fCat').addEventListener('input', paintChips);
+// Nuovo movimento: se la nota coincide con una già usata, propone categoria e
+// importo di quella più recente. Riempie solo i campi ancora vuoti.
+$('#fNote').addEventListener('change', () => {
+  if (formRow) return;
+  const n = $('#fNote').value.trim().toLowerCase(); if (!n) return;
+  let last = null;
+  for (const r of allRows) if (r.nota && r.nota.trim().toLowerCase() === n && (!last || r.data_ora > last.data_ora)) last = r;
+  if (!last) return;
+  if (!$('#fCat').value.trim()) {
+    if (formTipo !== last.tipo) setTipo(last.tipo);
+    $('#fCat').value = last.categoria; paintChips();
+  }
+  if (!$('#fAmt').value.trim()) $('#fAmt').value = Math.abs(last.importo).toFixed(2).replace('.', ',');
+});
 
 $('#form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -1377,7 +1392,26 @@ $('#btnInstall').addEventListener('click', async () => {
   }
   render();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    // Se c'era già un service worker e ne subentra uno nuovo, la pagina aperta è
+    // ancora quella vecchia: lo diciamo e lasciamo decidere quando ricaricare
+    // (ricaricare di colpo chiuderebbe un movimento a metà).
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || document.getElementById('updBar')) return;
+      const b = document.createElement('button');
+      b.id = 'updBar'; b.type = 'button'; b.className = 'upd';
+      b.textContent = 'Nuova versione disponibile. Tocca per aggiornare.';
+      b.addEventListener('click', () => location.reload());
+      document.body.appendChild(b);
+    });
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  // Scorciatoia dell'icona: apre direttamente il form di nuova spesa.
+  if (new URLSearchParams(location.search).get('nuova') === '1') {
+    history.replaceState(null, '', location.pathname);
+    openForm();
+  }
 })();
 </script>
 </body>
