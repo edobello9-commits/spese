@@ -888,7 +888,7 @@ function netSeries(conti, all, nowMs, count) {
   }
   return out;
 }
-// Prima di spostare l'ancoraggio salva i valori di fine mese calcolati fin qui, così l'andamento resta.
+// Prima di spostare l'ancoraggio salva i valori di fine mese calcolati dal vecchio ancoraggio in poi, così l'andamento resta.
 function snapshotBefore(acc, all, newTs, nowMs) {
   if (!acc.anc) return acc.storico || {};
   const st = { ...(acc.storico || {}) };
@@ -896,7 +896,7 @@ function snapshotBefore(acc, all, newTs, nowMs) {
   const stop = monthKey(new Date(newTs).toISOString());
   for (let i = 0; i < 240 && k < stop; i++, k = shiftMonth(k, 1)) {
     const end = Math.min(endOfDay(k + '-' + pad(daysIn(k))), nowMs);
-    if (st[k] === undefined) st[k] = Math.round(accValueAt(acc, all, end, nowMs) * 100) / 100;
+    st[k] = Math.round(accValueAt(acc, all, end, nowMs) * 100) / 100; // il calcolato a fine mese è più preciso del valore inserito a metà mese
   }
   return st;
 }

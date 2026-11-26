@@ -2,7 +2,7 @@
 // e intanto scarica la versione nuova per la prossima apertura.
 // Cambiare CACHE a ogni rilascio: così il nuovo service worker subentra e l'app
 // mostra il banner «Nuova versione disponibile».
-const CACHE = 'spese-v5';
+const CACHE = 'spese-v6';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
