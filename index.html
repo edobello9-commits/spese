@@ -200,6 +200,23 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
 .row .t span.soon{display:inline-block}
 .rsec{margin:14px 0 4px;color:var(--muted);font-size:.74rem;font-weight:650;text-transform:uppercase;letter-spacing:.06em}
 .dt{display:block;width:100%}
+.tabs{grid-template-columns:repeat(5,1fr)}
+.tabs button{font-size:.8rem;padding:10px 0}
+.seg.three{grid-template-columns:1fr 1fr 1fr}
+.f select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px;min-height:48px;font:inherit;color:inherit}
+.soon.pend{color:var(--warn)}
+.row.tr .amt{color:var(--muted)}
+.prow{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow .t{flex:1;min-width:0;border:0;background:transparent;text-align:left;padding:0}
+.prow .t span{display:block}
+.prow .c{font-weight:600}
+.prow .n{color:var(--muted);font-size:.85rem}
+.mini{border:1px solid var(--line);background:var(--chip);border-radius:10px;padding:8px 10px;font-weight:650;font-size:.85rem;min-height:40px}
+.mini.ok{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.acc .n b{color:var(--ink);font-weight:600}
+.l-net{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.chart .d-net{fill:var(--accent)}
 </style>
 </head>
 <body>
@@ -224,6 +241,7 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
     <button role="tab" data-view="movimenti" aria-selected="false">Movimenti</button>
     <button role="tab" data-view="grafici" aria-selected="false">Grafici</button>
     <button role="tab" data-view="mesi" aria-selected="false">Mesi</button>
+    <button role="tab" data-view="conti" aria-selected="false">Conti</button>
   </nav>
   <main id="content"></main>
 </div>
@@ -235,15 +253,18 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
   <form id="form" autocomplete="off" novalidate>
     <div class="sh"><h2 id="formTitle">Nuovo movimento</h2>
       <button type="button" class="ib" data-close aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <div class="seg" role="group" aria-label="Tipo di movimento">
+    <div class="seg three" role="group" aria-label="Tipo di movimento">
       <button type="button" data-tipo="Expense" aria-pressed="true">Uscita</button>
       <button type="button" data-tipo="Income" aria-pressed="false">Entrata</button>
+      <button type="button" data-tipo="Transfer" aria-pressed="false">Giroconto</button>
     </div>
     <div class="f"><label for="fAmt">Importo</label>
       <div class="amtw"><input id="fAmt" inputmode="decimal" placeholder="0,00"><em>€</em></div></div>
-    <div class="f"><label for="fCat">Categoria</label>
+    <div class="f" id="fCatW"><label for="fCat">Categoria</label>
       <div class="chips" id="chips"></div>
       <input id="fCat" list="catlist" placeholder="Oppure scrivine un'altra"><datalist id="catlist"></datalist></div>
+    <div class="f" id="fContoW"><label for="fConto" id="fContoL">Conto</label><select id="fConto"></select></div>
+    <div class="f" id="fContoAW" hidden><label for="fContoA">Al conto</label><select id="fContoA"></select></div>
     <div class="f"><label for="fNote">Nota</label><input id="fNote" placeholder="Facoltativa"></div>
     <div class="f"><label for="fDate">Data e ora</label><input id="fDate" type="datetime-local"></div>
     <p class="err" id="fErr" role="alert" hidden></p>
@@ -264,15 +285,16 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
     <div><dt>Dati protetti</dt><dd id="stPersist">-</dd></div>
   </dl>
   <div class="acts col">
-    <button type="button" class="btn" id="btnImport">Importa CSV di Spendee</button>
+    <button type="button" class="btn" id="btnBackup">Salva backup (.json)</button>
     <button type="button" class="btn sec" id="btnRic">Ricorrenti e rate</button>
     <button type="button" class="btn sec" id="btnBudgetMenu">Budget e categorie</button>
-    <button type="button" class="btn sec" id="btnBackup">Salva backup (.json)</button>
-    <button type="button" class="btn sec" id="btnExport">Esporta CSV</button>
+    <button type="button" class="btn sec" id="btnDup">Controlla doppioni</button>
     <button type="button" class="btn sec" id="btnRestore">Ripristina da backup</button>
+    <button type="button" class="btn sec" id="btnExport">Esporta CSV</button>
+    <button type="button" class="btn sec" id="btnImport">Importa da Spendee (solo migrazione)</button>
     <button type="button" class="btn sec" id="btnInstall" hidden>Installa app</button>
   </div>
-  <p class="hint">Per il backup scegli Drive nel menu di condivisione che si apre. Se Drive non compare, salva il file e caricalo a mano.</p>
+  <p class="hint">Per il backup scegli Drive nel menu di condivisione che si apre. Se Drive non compare, salva il file e caricalo a mano. L'import da Spendee serve solo per portare lo storico: ripeterlo dopo aver inserito spese qui crea doppioni.</p>
   <p class="msg" id="menuMsg" aria-live="polite"></p>
 </section>
 
@@ -287,7 +309,7 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
 <section class="sheet" id="sheetRic" role="dialog" aria-modal="true" aria-labelledby="ricTitle" hidden>
   <div class="sh"><h2 id="ricTitle">Ricorrenti e rate</h2>
     <button type="button" class="ib" data-close aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-  <p class="mut">Le scadenze future compaiono in «In arrivo» e non entrano nei totali finché non passano. Una ricorrenza senza fine viene prevista per i 12 mesi successivi.</p>
+  <p class="mut">Le scadenze future compaiono in «In arrivo». Quando la data passa finiscono in «Da confermare» nella Home ed entrano nei totali solo dopo che tocchi «Pagata». Se registri la stessa spesa a mano, la scadenza sparisce da sola. Una ricorrenza senza fine viene prevista per i 12 mesi successivi.</p>
   <div id="ricList"></div>
   <div class="acts"><button type="button" class="btn" id="ricNew">Nuova ricorrenza o rata</button></div>
 </section>
@@ -305,6 +327,7 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
     <div class="f"><label for="rCat">Categoria</label><input id="rCat" list="rcatlist" placeholder="Scegli o scrivi"><datalist id="rcatlist"></datalist></div>
     <div class="f"><label for="rNote">Nota</label><input id="rNote" placeholder="Facoltativa"></div>
     <div class="f"><label for="rEti">Etichetta</label><input id="rEti" placeholder="Facoltativa"></div>
+    <div class="f" id="rContoW"><label for="rConto">Conto</label><select id="rConto"></select></div>
     <div class="f"><label for="rDa">Prima scadenza</label><input id="rDa" type="date" class="dt"></div>
     <div class="f"><label for="rFine">Ultimo mese, se è una rata (vuoto = senza fine)</label><input id="rFine" type="month" class="dt"></div>
     <p class="mut" id="rHint"></p>
@@ -314,6 +337,45 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
       <button type="button" class="btn danger" id="rDel" hidden>Elimina</button>
     </div>
   </form>
+</section>
+
+<section class="sheet" id="sheetConto" role="dialog" aria-modal="true" aria-labelledby="contoTitle" hidden>
+  <form id="contoForm" autocomplete="off" novalidate>
+    <div class="sh"><h2 id="contoTitle">Nuovo conto</h2>
+      <button type="button" class="ib" data-close aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="f"><label for="cNome">Nome</label><input id="cNome" placeholder="Es. conto corrente, Directa"></div>
+    <div class="f"><span>Tipo</span><div class="chips" id="cTipi"></div></div>
+    <div class="f"><label for="cVal" id="cValL">Saldo attuale</label>
+      <div class="amtw"><input id="cVal" inputmode="decimal" placeholder="0,00"><em>€</em></div></div>
+    <div class="f"><label for="cData">Valore al giorno</label><input id="cData" type="date" class="dt"></div>
+    <div class="f" id="cVersW"><label for="cVers">Versato in totale (facoltativo)</label>
+      <div class="amtw"><input id="cVers" inputmode="decimal" placeholder="0,00"><em>€</em></div></div>
+    <label class="chk" id="cDefW" style="margin-top:14px"><input type="checkbox" id="cDef"> Conto predefinito per le nuove spese</label>
+    <p class="mut" id="cHint"></p>
+    <p class="err" id="cErr" role="alert" hidden></p>
+    <div class="acts">
+      <button type="submit" class="btn">Salva</button>
+      <button type="button" class="btn danger" id="cDel" hidden>Elimina</button>
+    </div>
+  </form>
+</section>
+
+<section class="sheet" id="sheetRestore" role="dialog" aria-modal="true" aria-labelledby="rsTitle" hidden>
+  <div class="sh"><h2 id="rsTitle">Ripristina backup</h2>
+    <button type="button" class="ib" data-close aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <p class="mut" id="rsInfo"></p>
+  <div class="acts col">
+    <button type="button" class="btn danger" id="rsReplace" style="flex:1">Sostituisci tutto</button>
+    <button type="button" class="btn sec" id="rsMerge">Unisci ai dati attuali</button>
+  </div>
+  <p class="hint">Sostituisci: i dati sul telefono diventano esattamente quelli del backup. Usalo per tornare indietro dopo un errore o su un telefono nuovo. Unisci: aggiunge quello che manca e, per i movimenti presenti in tutti e due, tiene la versione modificata più di recente.</p>
+</section>
+
+<section class="sheet" id="sheetDup" role="dialog" aria-modal="true" aria-labelledby="dupTitle" hidden>
+  <div class="sh"><h2 id="dupTitle">Possibili doppioni</h2>
+    <button type="button" class="ib" data-close aria-label="Chiudi"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <p class="mut">Coppie di movimenti con stessa categoria, importo e nota a meno di 3 minuti di distanza: di solito è un doppio tocco. Tocca quello in più per eliminarlo.</p>
+  <div id="dupList"></div>
 </section>
 
 <div class="toast" id="toast" role="status" hidden></div>
@@ -667,7 +729,7 @@ function ricToRow(ric, o) {
   return {
     data_ora: toIso(parseYmd(o.ymd)), wallet: 'Portafoglio contanti', tipo: ric.tipo, categoria: ric.categoria,
     importo: ric.tipo === 'Expense' ? -ric.importo : ric.importo, nota: ric.nota || '', etichette: ric.etichette || '', autore: '',
-    ric: ric.id, ricK: ric.id + '|' + o.mk
+    ric: ric.id, ricK: ric.id + '|' + o.mk, conto: ric.conto || '', uid: uidNew(), mod: Date.now()
   };
 }
 function ricMissing(rics, existing, untilMk) {
@@ -682,11 +744,151 @@ function ricMissing(rics, existing, untilMk) {
   }
   return out;
 }
+// ---- modello v4 ----
+// Ogni movimento ha un uid stabile e "mod" (ms dell'ultima modifica): servono al
+// ripristino per riconoscere lo stesso movimento anche dopo una modifica.
+// tipo 'Transfer' = giroconto: importo > 0, da "conto" a "contoA". Non è né spesa né entrata.
+// Le scadenze di una ricorrenza (campo ric) passate e non confermate (conf) restano
+// fuori dai totali finché non le confermi.
+function uidNew() {
+  const c = typeof crypto !== 'undefined' ? crypto : null;
+  return c && c.randomUUID ? c.randomUUID() : 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+const isTransfer = r => r.tipo === 'Transfer';
+const isPending = (r, nowMs) => !!r.ric && !r.conf && Date.parse(r.data_ora) <= nowMs;
+
+// settled: spese ed entrate che contano nei totali. upcoming: future. pending: scadenze da confermare.
 function splitRows(all, nowMs) {
-  const settled = [], upcoming = [];
-  for (const r of all) (Date.parse(r.data_ora) > nowMs ? upcoming : settled).push(r);
+  const settled = [], upcoming = [], pending = [], transfers = [];
+  for (const r of all) {
+    if (isTransfer(r)) transfers.push(r);
+    else if (Date.parse(r.data_ora) > nowMs) upcoming.push(r);
+    else if (isPending(r, nowMs)) pending.push(r);
+    else settled.push(r);
+  }
   upcoming.sort((a, b) => a.data_ora.localeCompare(b.data_ora));
-  return { settled, upcoming };
+  pending.sort((a, b) => a.data_ora.localeCompare(b.data_ora));
+  return { settled, upcoming, pending, transfers };
+}
+
+// Passaggio dal formato v3: uid su tutte le righe; le scadenze passate da più di
+// 31 giorni si considerano pagate (le più recenti andranno confermate).
+function migrateRows(all, nowMs) {
+  const changed = [];
+  for (const r of all) {
+    let ch = false;
+    if (!r.uid) { r.uid = uidNew(); r.mod = r.mod || 0; ch = true; }
+    if (r.conto === undefined) { r.conto = ''; ch = true; }
+    if (r.ric && r.conf === undefined && Date.parse(r.data_ora) < nowMs - 31 * 864e5) { r.conf = true; ch = true; }
+    if (ch) changed.push(r);
+  }
+  return changed;
+}
+
+// Scadenze generate due volte per lo stesso mese (stesso ricK): restituisce le copie in più.
+function ricDuplicates(all) {
+  const seen = new Map(), extra = [];
+  const sorted = all.filter(r => r.ricK).sort((a, b) => (b.conf ? 1 : 0) - (a.conf ? 1 : 0) || (a.id || 0) - (b.id || 0));
+  for (const r of sorted) { if (seen.has(r.ricK)) extra.push(r); else seen.set(r.ricK, r); }
+  return extra;
+}
+
+// Scadenze da confermare che hai già registrato a mano: stessa categoria e importo,
+// al massimo 3 giorni di distanza. Ogni riga manuale copre una sola scadenza.
+function ricAutoResolve(all, nowMs) {
+  const pend = all.filter(r => isPending(r, nowMs));
+  const manual = all.filter(r => !r.ric && !isTransfer(r));
+  const used = new Set(), out = [];
+  for (const p of pend) {
+    const t = Date.parse(p.data_ora);
+    const m = manual.find(x => !used.has(x) && x.categoria === p.categoria && Math.abs(x.importo - p.importo) < 0.005 && Math.abs(Date.parse(x.data_ora) - t) <= 3 * 864e5);
+    if (m) { used.add(m); out.push(p); }
+  }
+  return out;
+}
+
+// Doppi tocchi: righe manuali consecutive identiche (categoria, importo, nota) entro 3 minuti.
+function findDupes(rows) {
+  const s = rows.filter(r => !isTransfer(r) && !r.ric).slice().sort((a, b) => a.data_ora.localeCompare(b.data_ora)), out = [];
+  for (let i = 1; i < s.length; i++) {
+    const a = s[i - 1], b = s[i];
+    if (a.categoria === b.categoria && Math.abs(a.importo - b.importo) < 0.005 && (a.nota || '') === (b.nota || '') &&
+        Date.parse(b.data_ora) - Date.parse(a.data_ora) <= 180000) out.push([a, b]);
+  }
+  return out;
+}
+
+// Unione per uid: aggiunge quelli nuovi, aggiorna quelli modificati dopo; ignora i cancellati.
+function mergeByUid(local, incoming, deleted) {
+  const byUid = new Map(local.filter(r => r.uid).map(r => [r.uid, r])), add = [], upd = [];
+  const ricK = new Set(local.filter(r => r.ricK).map(r => r.ricK));
+  for (const r of incoming) {
+    if (!r.uid || deleted.has(r.uid)) continue;
+    const l = byUid.get(r.uid);
+    if (!l) { if (!(r.ricK && ricK.has(r.ricK))) add.push(r); }
+    else if ((r.mod || 0) > (l.mod || 0)) upd.push({ ...r, id: l.id });
+  }
+  return { add, upd };
+}
+
+// ---- conti ----
+// conto: {id, nome, tipo, anc:{ts, saldo, versato}|null, storico:{'YYYY-MM': valore}}
+// Valore = saldo all'istante ts + movimenti assegnati al conto dopo ts (spese, entrate, giroconti).
+const TIPI = { corrente: 'Conto corrente', titoli: 'Conto titoli', altro: 'Altro investimento', bene: 'Bene', debito: 'Debito' };
+const GRUPPO = { corrente: 'liq', titoli: 'inv', altro: 'inv', bene: 'beni', debito: 'deb' };
+const endOfDay = dk => { const d = parseYmd(dk); d.setHours(23, 59, 59, 999); return d.getTime(); };
+function flowsFor(id, all, fromMs, toMs, nowMs) {
+  let v = 0, tin = 0;
+  for (const r of all) {
+    const t = Date.parse(r.data_ora);
+    if (t <= fromMs || t > toMs || t > nowMs || isPending(r, nowMs)) continue;
+    if (isTransfer(r)) {
+      if (r.conto === id) { v -= r.importo; tin -= r.importo; }
+      if (r.contoA === id) { v += r.importo; tin += r.importo; }
+    } else if (r.conto === id) v += r.importo;
+  }
+  return { v, tin };
+}
+function accValueAt(acc, all, atMs, nowMs) {
+  if (acc.anc && atMs >= acc.anc.ts) return acc.anc.saldo + flowsFor(acc.id, all, acc.anc.ts, atMs, nowMs).v;
+  const mk = monthKey(new Date(atMs).toISOString());
+  const ks = Object.keys(acc.storico || {}).filter(k => k <= mk).sort();
+  return ks.length ? acc.storico[ks[ks.length - 1]] : null;
+}
+function accVersato(acc, all, nowMs) {
+  if (!acc.anc || acc.anc.versato == null) return null;
+  return acc.anc.versato + flowsFor(acc.id, all, acc.anc.ts, nowMs, nowMs).tin;
+}
+function patrimonio(conti, all, atMs, nowMs) {
+  const g = { liq: 0, inv: 0, beni: 0, deb: 0 }; let tot = 0, missing = 0;
+  for (const a of conti) {
+    const v = accValueAt(a, all, atMs, nowMs);
+    if (v === null) { missing++; continue; }
+    g[GRUPPO[a.tipo] || 'inv'] += v; tot += v;
+  }
+  return { tot, g, missing };
+}
+// Totale a fine mese per i "count" mesi che finiscono in quello attuale.
+function netSeries(conti, all, nowMs, count) {
+  const nowMk = monthKey(new Date(nowMs).toISOString()), out = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const k = shiftMonth(nowMk, -i), end = Math.min(endOfDay(k + '-' + pad(daysIn(k))), nowMs);
+    const p = patrimonio(conti, all, end, nowMs);
+    out.push({ k, tot: p.tot, missing: p.missing, any: p.missing < conti.length });
+  }
+  return out;
+}
+// Prima di spostare l'ancoraggio salva i valori di fine mese calcolati fin qui, così l'andamento resta.
+function snapshotBefore(acc, all, newTs, nowMs) {
+  if (!acc.anc) return acc.storico || {};
+  const st = { ...(acc.storico || {}) };
+  let k = monthKey(new Date(acc.anc.ts).toISOString());
+  const stop = monthKey(new Date(newTs).toISOString());
+  for (let i = 0; i < 240 && k < stop; i++, k = shiftMonth(k, 1)) {
+    const end = Math.min(endOfDay(k + '-' + pad(daysIn(k))), nowMs);
+    if (st[k] === undefined) st[k] = Math.round(accValueAt(acc, all, end, nowMs) * 100) / 100;
+  }
+  return st;
 }
 //#LOGIC-END
 
@@ -715,6 +917,24 @@ const dbBulkAdd = list => new Promise((res, rej) => {
 });
 const metaGet = k => reqP(db.transaction('meta').objectStore('meta').get(k));
 const metaSet = (k, v) => reqP(db.transaction('meta', 'readwrite').objectStore('meta').put(v, k));
+const dbClear = () => reqP(db.transaction('mov', 'readwrite').objectStore('mov').clear());
+const dbPutMany = list => new Promise((res, rej) => {
+  const t = db.transaction('mov', 'readwrite'); const s = t.objectStore('mov');
+  list.forEach(r => s.put(r));
+  t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+});
+// Salva una riga timbrando uid e ora di modifica; restituisce la riga con id.
+async function saveRow(r) {
+  if (!r.uid) r.uid = uidNew();
+  r.mod = Date.now();
+  const id = await dbPut(r); if (r.id === undefined) r.id = id;
+  return r;
+}
+// Cancella una riga e ne ricorda l'uid, così un "Unisci" non la fa tornare.
+async function deleteRow(r) {
+  await dbDel(r.id);
+  if (r.uid) { deleted.add(r.uid); await metaSet('del', [...deleted]); }
+}
 
 // ---------- interfaccia ----------
 const $ = s => document.querySelector(s);
@@ -727,6 +947,7 @@ const DAY_FMT = new Intl.DateTimeFormat('it-IT', { weekday: 'short', day: 'numer
 const DATE_FMT = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+let pending = [], transfers = [], conti = [], contoDef = '', deleted = new Set();
 let rows = [], allRows = [], upcoming = [], rics = [], lastBackup = null, view = 'home', query = '', budgets = {}, exclCats = [], exclOn = true;
 let gPreset = '3m', gFrom = '', gTo = '', gKind = 'Expense', gGran = 'auto', gSel = -1, gScrollKeep = null;
 let cur = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
@@ -748,18 +969,28 @@ function monthListHTML(mk) {
   const days = new Map();
   for (const r of items) { const k = dayKey(r.data_ora); if (!days.has(k)) days.set(k, []); days.get(k).push(r); }
   let h = '';
+  const now = Date.now();
   for (const [k, list] of days) {
-    const net = list.reduce((s, r) => s + r.importo, 0);
+    const net = list.reduce((s, r) => s + (isTransfer(r) || isPending(r, now) ? 0 : r.importo), 0);
     h += '<div class="day"><div class="dayh"><span>' + esc(DAY_FMT.format(new Date(list[0].data_ora))) + '</span><span>' + signed(net) + '</span></div><div class="list">';
-    for (const r of list) {
-      h += '<button class="row" data-id="' + r.id + '"><span class="t"><span class="c">' + esc(r.categoria) + '</span>' +
-        (r.nota ? '<span class="n">' + esc(r.nota) + '</span>' : '') + (Date.parse(r.data_ora) > Date.now() ? '<span class="soon">in arrivo</span>' : '') + '</span><span class="amt ' + (r.importo < 0 ? 'out' : 'in') + '">' + signed(r.importo) + '</span></button>';
-    }
+    for (const r of list) h += rowHTML(r, now, false);
     h += '</div></div>';
   }
   return h;
 }
 
+const contoName = id => { const a = conti.find(x => x.id === id); return a ? a.nome : (id ? 'conto eliminato' : ''); };
+function rowHTML(r, now, withDate) {
+  const dt = withDate ? esc(DATE_FMT.format(new Date(r.data_ora))) : '';
+  if (isTransfer(r)) {
+    const sub = [dt, esc(contoName(r.conto) + ' → ' + contoName(r.contoA)), r.nota ? esc(r.nota) : ''].filter(Boolean).join(' · ');
+    return '<button class="row tr" data-id="' + r.id + '"><span class="t"><span class="c">Giroconto</span><span class="n">' + sub + '</span></span><span class="amt">' + fmt(r.importo) + '</span></button>';
+  }
+  const sub = [dt, r.nota ? esc(r.nota) : '', conti.length && r.conto ? esc(contoName(r.conto)) : ''].filter(Boolean).join(' · ');
+  const tag = Date.parse(r.data_ora) > now ? '<span class="soon">in arrivo</span>' : isPending(r, now) ? '<span class="soon pend">da confermare</span>' : '';
+  return '<button class="row" data-id="' + r.id + '"><span class="t"><span class="c">' + esc(r.categoria) + '</span>' +
+    (sub ? '<span class="n">' + sub + '</span>' : '') + tag + '</span><span class="amt ' + (r.importo < 0 ? 'out' : 'in') + '">' + signed(r.importo) + '</span></button>';
+}
 const MONTH_ONLY = new Intl.DateTimeFormat('it-IT', { month: 'long' });
 const MON_S = new Intl.DateTimeFormat('it-IT', { month: 'short' });
 const fmtK = v => v >= 1000 ? (v / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + 'k' : String(Math.round(v));
@@ -816,9 +1047,8 @@ function resultsHTML(mk) {
   if (!res.length) return '<div class="empty"><b>Nessun risultato</b>Prova con una parola della nota o con il nome della categoria.</div>';
   const net = res.reduce((t, r) => t + r.importo, 0);
   let h = '<div class="sec-h">' + res.length + ' risultati · saldo ' + signed(net) + '</div><div class="list">';
-  for (const r of res.slice(0, 300)) {
-    h += '<button class="row" data-id="' + r.id + '"><span class="t"><span class="c">' + esc(r.categoria) + '</span><span class="n">' + esc(DATE_FMT.format(new Date(r.data_ora))) + (r.nota ? ' · ' + esc(r.nota) : '') + '</span></span><span class="amt ' + (r.importo < 0 ? 'out' : 'in') + '">' + signed(r.importo) + '</span></button>';
-  }
+  const now = Date.now();
+  for (const r of res.slice(0, 300)) h += rowHTML(r, now, true);
   h += '</div>';
   if (res.length > 300) h += '<p class="mut">Mostro i primi 300. Restringi la ricerca.</p>';
   return h;
@@ -838,11 +1068,22 @@ function upcomingCard() {
   return h;
 }
 
+function pendingCard() {
+  if (!pending.length) return '';
+  const tot = pending.reduce((t, r) => t + r.importo, 0);
+  let h = '<section class="card"><h3>Da confermare</h3><div class="sub">Scadenze passate: entrano nei totali quando tocchi «Pagata». Totale ' + signed(tot) + '.</div>';
+  for (const r of pending) {
+    h += '<div class="prow"><button class="t" data-id="' + r.id + '"><span class="c">' + esc(r.nota || r.etichette || r.categoria) + ' · <span class="' + (r.importo < 0 ? 'out' : 'in') + '">' + signed(r.importo) + '</span></span><span class="n">' + esc(DAY_FMT.format(new Date(r.data_ora))) + (r.nota || r.etichette ? ' · ' + esc(r.categoria) : '') + '</span></button>' +
+      '<button class="mini ok" data-conf="' + r.id + '">Pagata</button><button class="mini" data-skip="' + r.id + '">Non pagata</button></div>';
+  }
+  return h + '</section>';
+}
+
 function viewHome(mk) {
-  if (!rows.length) return monthListHTML(mk);
+  if (!rows.length && !pending.length) return monthListHTML(mk);
   const now = new Date(), tMk = now.getFullYear() + '-' + pad(now.getMonth() + 1), tD = now.getDate();
   const ex = exclOn ? new Set(exclCats) : new Set();
-  let h = '';
+  let h = pendingCard();
   if (exclCats.length) h += '<div class="chips"><button class="chip" id="exclToggle" aria-pressed="' + exclOn + '">Senza straordinarie: ' + exclCats.map(esc).join(', ') + '</button></div>';
 
   h += upcomingCard();
@@ -1017,12 +1258,75 @@ function viewMesi(mk) {
   }).join('') + '</div>';
 }
 
+// ---------- conti e patrimonio ----------
+function svgNet(sr) {
+  const W = 340, H = 160, L = 38, R = 10, T = 10, B = 22, pw = W - L - R, ph = H - T - B;
+  const pts = sr.map((o, i) => ({ i, o })).filter(p => p.o.any);
+  const vals = pts.map(p => p.o.tot), lo = Math.min(0, ...vals), ymax = niceMax(Math.max(...vals, 100) - lo);
+  const x = i => L + (sr.length === 1 ? pw / 2 : i / (sr.length - 1) * pw), y = v => T + ph - (v - lo) / ymax * ph;
+  let g = '';
+  for (const f of [0, .5, 1]) { const v = lo + ymax * f, yy = f1(y(v)); g += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/><text class="ax" x="' + (L - 5) + '" y="' + f1(y(v) + 3) + '" text-anchor="end">' + fmtK(v) + '</text>'; }
+  sr.forEach((o, i) => { if (i % 2 === sr.length % 2 || i === sr.length - 1) { const q = mkParts(o.k); g += '<text class="ax" x="' + f1(x(i)) + '" y="' + (H - 7) + '" text-anchor="middle">' + MON_S.format(new Date(q.y, q.m - 1, 1)).replace('.', '') + '</text>'; } });
+  if (pts.length > 1) g += '<path class="l-net" d="' + pts.map((p, j) => (j ? 'L' : 'M') + f1(x(p.i)) + ' ' + f1(y(p.o.tot))).join(' ') + '"/>';
+  pts.forEach(p => { g += '<circle class="d-net" cx="' + f1(x(p.i)) + '" cy="' + f1(y(p.o.tot)) + '" r="3"/>'; });
+  return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Patrimonio a fine mese">' + g + '</svg>';
+}
+
+function accRowHTML(a, now) {
+  const v = accValueAt(a, allRows, now, now);
+  let sub;
+  if (!a.anc) sub = '<b>Tocca per impostare il valore</b>';
+  else {
+    const auto = a.tipo === 'corrente' ? ' calcolato dai movimenti' : a.tipo === 'bene' ? '' : ' più i giroconti';
+    sub = TIPI[a.tipo] + ' · valore del ' + esc(DATE_FMT.format(new Date(a.anc.ts))) + auto + (a.id === contoDef ? ' · predefinito' : '');
+    const vers = accVersato(a, allRows, now);
+    if (vers !== null && vers > 0 && v !== null) {
+      const gain = v - vers;
+      sub += '<br>Versato ' + fmt(vers) + ' · <span class="' + (gain < 0 ? 'out' : 'in') + '">' + signed(gain) + ' (' + (gain / vers * 100).toFixed(1).replace('.', ',') + '%)</span>';
+    }
+  }
+  return '<button class="row acc" data-acc="' + esc(a.id) + '"><span class="t"><span class="c">' + esc(a.nome) + '</span><span class="n" style="white-space:normal">' + sub + '</span></span><span class="amt' + (v !== null && v < 0 ? ' out' : '') + '">' + (v === null ? '-' : fmt(v)) + '</span></button>';
+}
+
+function viewConti() {
+  const now = Date.now();
+  let h = '';
+  if (!conti.length) {
+    return '<div class="empty"><b>Nessun conto</b>Aggiungi conti correnti, conti titoli, crypto e altri investimenti, e anche beni come l\'auto o eventuali debiti. Il patrimonio non tocca i totali delle spese.<br><button class="btn" id="accNew">Aggiungi un conto</button></div>' +
+      '<p class="hint">Hai un file con i conti già pronti? Usa Menu → Ripristina da backup → Unisci.</p>';
+  }
+  const p = patrimonio(conti, allRows, now, now);
+  const nowMk = monthKey(new Date(now).toISOString()), prevMk = shiftMonth(nowMk, -1);
+  const pp = patrimonio(conti, allRows, endOfDay(prevMk + '-' + pad(daysIn(prevMk))), now);
+  h += '<section class="card"><h3>Patrimonio</h3><div class="bigsm">' + fmt(p.tot) + '</div>';
+  if (pp.missing < conti.length && pp.missing === p.missing) h += '<div class="sub">' + signed(p.tot - pp.tot) + ' rispetto a fine ' + MONTH_ONLY.format(new Date(Number(prevMk.slice(0, 4)), Number(prevMk.slice(5)) - 1, 1)) + '</div>';
+  h += '<dl class="stat"><div><dt>Liquidità</dt><dd>' + fmt(p.g.liq) + '</dd></div><div><dt>Investimenti</dt><dd>' + fmt(p.g.inv) + '</dd></div>' +
+    (p.g.beni ? '<div><dt>Beni</dt><dd>' + fmt(p.g.beni) + '</dd></div>' : '') + (p.g.deb ? '<div><dt>Debiti</dt><dd class="out">' + fmt(p.g.deb) + '</dd></div>' : '') + '</dl>';
+  if (p.missing) h += '<p class="mut">' + p.missing + (p.missing === 1 ? ' conto non ha' : ' conti non hanno') + ' ancora un valore e non ' + (p.missing === 1 ? 'è contato' : 'sono contati') + '.</p>';
+  h += '</section>';
+
+  const sr = netSeries(conti, allRows, now, 12);
+  if (sr.filter(o => o.any).length > 1) {
+    h += '<section class="card"><h3>Andamento</h3>' + svgNet(sr) + '<p class="mut">Valore a fine mese. Per i mesi prima del primo valore inserito un conto non viene contato, quindi la linea può salire a gradino.</p></section>';
+  }
+
+  const groups = [['liq', 'Liquidità'], ['inv', 'Investimenti'], ['beni', 'Beni'], ['deb', 'Debiti']];
+  for (const [g, label] of groups) {
+    const list = conti.filter(a => (GRUPPO[a.tipo] || 'inv') === g);
+    if (!list.length) continue;
+    h += '<div class="sec-h">' + label + '</div><div class="list">' + list.map(a => accRowHTML(a, now)).join('') + '</div>';
+  }
+  h += '<div class="acts"><button class="btn" id="accTr">Giroconto</button><button class="btn sec" id="accNew">Nuovo conto</button></div>';
+  h += '<p class="hint">Conti correnti: inserisci il saldo una volta, poi l\'app lo aggiorna con le spese, le entrate e i giroconti assegnati a quel conto. Investimenti e beni: aggiorna il valore quando vuoi, anche una volta al mese. I giroconti verso un investimento aumentano il versato.</p>';
+  return h;
+}
+
 function render() {
-  const sp = splitRows(allRows, Date.now()); rows = sp.settled; upcoming = sp.upcoming;
+  const sp = splitRows(allRows, Date.now()); rows = sp.settled; upcoming = sp.upcoming; pending = sp.pending; transfers = sp.transfers;
   const mk = curKey();
   $('#monthLabel').textContent = MONTH_FMT.format(new Date(cur.y, cur.m, 1));
   const tNow = new Date(), fut = mk > tNow.getFullYear() + '-' + pad(tNow.getMonth() + 1);
-  const s = summarize(fut ? allRows : rows, mk);
+  const s = summarize(fut ? rows.concat(upcoming) : rows, mk);
   document.querySelector('.sum .lbl').textContent = fut ? 'Uscite previste' : 'Uscite';
   $('#sumUsc').textContent = fmt(s.usc);
   $('#sumEnt').textContent = fmt(s.ent);
@@ -1033,8 +1337,9 @@ function render() {
   if (stale) bn.innerHTML = lastBackup
     ? '<b>Ultimo backup ' + Math.floor((Date.now() - lastBackup) / 864e5) + ' giorni fa.</b> Tocca per salvarne uno nuovo.'
     : '<b>Non hai ancora fatto un backup.</b> Tocca per salvare una copia dei dati.';
-  $('.sum').hidden = view === 'grafici';
-  $('#content').innerHTML = view === 'home' ? viewHome(mk) : view === 'movimenti' ? viewMovimenti(mk) : view === 'grafici' ? viewGrafici(mk) : viewMesi(mk);
+  $('.sum').hidden = view === 'grafici' || view === 'conti';
+  ['#prev', '#monthLabel', '#next'].forEach(s => { $(s).style.visibility = view === 'conti' ? 'hidden' : ''; });
+  $('#content').innerHTML = view === 'home' ? viewHome(mk) : view === 'movimenti' ? viewMovimenti(mk) : view === 'grafici' ? viewGrafici(mk) : view === 'conti' ? viewConti() : viewMesi(mk);
   const bsc = document.getElementById('barscroll');
   if (bsc) { bsc.scrollLeft = gScrollKeep === null ? bsc.scrollWidth : gScrollKeep; gScrollKeep = null; }
 }
@@ -1067,26 +1372,44 @@ function paintChips() {
   $('#chips').innerHTML = cats.slice(0, 8).map(c => '<button type="button" class="chip" data-cat="' + esc(c) + '" aria-pressed="' + (c === val) + '">' + esc(c) + '</button>').join('');
   $('#catlist').innerHTML = cats.map(c => '<option value="' + esc(c) + '">').join('');
 }
+// Opzioni dei conti per i select: niente beni; "Nessun conto" per contanti o spese non legate a un conto.
+function contoOptions(sel, withNone) {
+  const list = conti.filter(a => a.tipo !== 'bene');
+  return (withNone ? '<option value="">Nessun conto</option>' : '') + list.map(a => '<option value="' + esc(a.id) + '"' + (a.id === sel ? ' selected' : '') + '>' + esc(a.nome) + '</option>').join('');
+}
 function setTipo(t) {
   formTipo = t;
   document.querySelectorAll('.seg [data-tipo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tipo === t)));
-  paintChips();
+  const tr = t === 'Transfer';
+  $('#fCatW').hidden = tr; $('#fContoAW').hidden = !tr;
+  $('#fContoW').hidden = !conti.length;
+  $('#fContoL').textContent = tr ? 'Dal conto' : 'Conto';
+  if (!tr) paintChips();
 }
-function openForm(row) {
+function openForm(row, tipo) {
   formRow = row || null; delArmed = false;
-  $('#formTitle').textContent = row ? 'Modifica movimento' : 'Nuovo movimento';
+  const t = row ? row.tipo : (tipo || 'Expense');
+  $('#formTitle').textContent = row ? (isPending(row, Date.now()) ? 'Conferma scadenza' : 'Modifica movimento') : 'Nuovo movimento';
   $('#fErr').hidden = true;
   const b = $('#btnDel'); b.hidden = !row; b.textContent = 'Elimina'; b.classList.remove('armed');
   $('#fAmt').value = row ? Math.abs(row.importo).toFixed(2).replace('.', ',') : '';
-  $('#fCat').value = row ? row.categoria : '';
+  $('#fCat').value = row && !isTransfer(row) ? row.categoria : '';
   $('#fNote').value = row ? (row.nota || '') : '';
   $('#fDate').value = toLocalInput(row ? row.data_ora : toIso(new Date()));
-  setTipo(row ? row.tipo : 'Expense');
+  const c1 = row ? (row.conto || '') : contoDef;
+  $('#fConto').innerHTML = contoOptions(c1, t !== 'Transfer');
+  const other = conti.find(a => a.tipo !== 'bene' && a.id !== c1);
+  $('#fContoA').innerHTML = contoOptions(row && row.contoA ? row.contoA : (other ? other.id : ''), false);
+  setTipo(t);
   openSheet('sheetForm');
   if (!row) setTimeout(() => $('#fAmt').focus(), 80);
 }
 document.querySelectorAll('.seg [data-tipo]').forEach(b => b.addEventListener('click', () => {
-  if (formTipo !== b.dataset.tipo) { $('#fCat').value = ''; setTipo(b.dataset.tipo); }
+  if (formTipo === b.dataset.tipo) return;
+  const wasTr = formTipo === 'Transfer', isTr = b.dataset.tipo === 'Transfer';
+  $('#fCat').value = '';
+  if (wasTr !== isTr) { const v = $('#fConto').value || contoDef; $('#fConto').innerHTML = contoOptions(v, !isTr); }
+  setTipo(b.dataset.tipo);
 }));
 $('#chips').addEventListener('click', e => {
   const c = e.target.closest('[data-cat]'); if (!c) return;
@@ -1096,10 +1419,10 @@ $('#fCat').addEventListener('input', paintChips);
 // Nuovo movimento: se la nota coincide con una già usata, propone categoria e
 // importo di quella più recente. Riempie solo i campi ancora vuoti.
 $('#fNote').addEventListener('change', () => {
-  if (formRow) return;
+  if (formRow || formTipo === 'Transfer') return;
   const n = $('#fNote').value.trim().toLowerCase(); if (!n) return;
   let last = null;
-  for (const r of allRows) if (r.nota && r.nota.trim().toLowerCase() === n && (!last || r.data_ora > last.data_ora)) last = r;
+  for (const r of allRows) if (!isTransfer(r) && r.nota && r.nota.trim().toLowerCase() === n && (!last || r.data_ora > last.data_ora)) last = r;
   if (!last) return;
   if (!$('#fCat').value.trim()) {
     if (formTipo !== last.tipo) setTipo(last.tipo);
@@ -1112,20 +1435,25 @@ $('#form').addEventListener('submit', async e => {
   e.preventDefault();
   const err = m => { const p = $('#fErr'); p.textContent = m; p.hidden = false; };
   const amt = parseAmount($('#fAmt').value);
-  const cat = $('#fCat').value.trim();
+  const cat = $('#fCat').value.trim(), tr = formTipo === 'Transfer';
   if (!isFinite(amt) || amt <= 0) return err('Inserisci un importo maggiore di zero.');
-  if (!cat) return err('Scegli o scrivi una categoria.');
+  if (!tr && !cat) return err('Scegli o scrivi una categoria.');
+  if (tr && (!$('#fConto').value || !$('#fContoA').value)) return err('Scegli i due conti del giroconto.');
+  if (tr && $('#fConto').value === $('#fContoA').value) return err('I due conti devono essere diversi.');
   const base = formRow ? { ...formRow } : { wallet: 'Portafoglio contanti', etichette: '', autore: '' };
   Object.assign(base, {
     data_ora: fromLocalInput($('#fDate').value) || toIso(new Date()),
-    tipo: formTipo, categoria: cat, importo: formTipo === 'Expense' ? -amt : amt, nota: $('#fNote').value.trim()
+    tipo: formTipo, categoria: tr ? 'Giroconto' : cat, importo: formTipo === 'Expense' ? -amt : amt, nota: $('#fNote').value.trim(),
+    conto: conti.length ? $('#fConto').value : (base.conto || '')
   });
+  if (tr) base.contoA = $('#fContoA').value; else delete base.contoA;
+  if (base.ric) base.conf = true; // salvare una scadenza vuol dire confermarla
   try {
-    const id = await dbPut(base);
-    base.id = formRow ? formRow.id : id;
+    await saveRow(base);
     allRows = formRow ? allRows.map(r => r.id === base.id ? base : r) : allRows.concat([base]);
+    if (!formRow) await autoResolve();
   } catch (x) { return err('Non sono riuscito a salvare. Riprova.'); }
-  setMonthFromKey(monthKey(base.data_ora));
+  if (view !== 'conti') setMonthFromKey(monthKey(base.data_ora));
   closeSheet(); render(); toast('Salvato');
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 });
@@ -1137,13 +1465,33 @@ $('#btnDel').addEventListener('click', async () => {
     clearTimeout(delT); delT = setTimeout(() => { delArmed = false; b.textContent = 'Elimina'; b.classList.remove('armed'); }, 3500);
     return;
   }
-  try {
-    await dbDel(formRow.id); allRows = allRows.filter(r => r.id !== formRow.id);
-    const rc = formRow.ric && rics.find(x => x.id === formRow.ric);
-    if (rc && formRow.ricK) { rc.skip = [...new Set((rc.skip || []).concat([formRow.ricK.split('|')[1]]))]; await metaSet('ric', rics); }
-  }
+  try { await removeRow(formRow); }
   catch (x) { return toast('Eliminazione non riuscita'); }
   closeSheet(); render(); toast('Eliminato');
+});
+// Elimina un movimento; se è una scadenza, quel mese non viene più rigenerato.
+async function removeRow(row) {
+  await deleteRow(row); allRows = allRows.filter(r => r.id !== row.id);
+  const rc = row.ric && rics.find(x => x.id === row.ric);
+  if (rc && row.ricK) { rc.skip = [...new Set((rc.skip || []).concat([row.ricK.split('|')[1]]))]; await metaSet('ric', rics); }
+}
+// Toglie le scadenze da confermare già registrate a mano.
+async function autoResolve() {
+  const dup = ricAutoResolve(allRows, Date.now());
+  for (const r of dup) await removeRow(r);
+  if (dup.length) toast(dup.length === 1 ? 'Una scadenza era già registrata a mano: tolta' : dup.length + ' scadenze erano già registrate a mano: tolte');
+  return dup.length;
+}
+$('#content').addEventListener('click', async e => {
+  const c = e.target.closest('[data-conf]'), s = e.target.closest('[data-skip]');
+  if (!c && !s) return;
+  const row = allRows.find(r => r.id === Number((c || s).dataset[c ? 'conf' : 'skip']));
+  if (!row) return;
+  try {
+    if (c) { row.conf = true; await saveRow(row); toast('Confermata'); }
+    else { await removeRow(row); toast('Tolta. Le prossime scadenze restano.'); }
+  } catch (x) { return toast('Operazione non riuscita'); }
+  render();
 });
 
 // ---------- archivio: import, backup ----------
@@ -1178,6 +1526,12 @@ function pickCsv() { $('#fileCsv').value = ''; $('#fileCsv').click(); }
 $('#btnImport').addEventListener('click', pickCsv);
 $('#content').addEventListener('click', e => {
   if (e.target.closest('#emptyImport')) { openMenu(); return; }
+  if (e.target.closest('#accNew')) { openConto(null); return; }
+  if (e.target.closest('#accTr')) { openForm(null, 'Transfer'); return; }
+  const acc = e.target.closest('[data-acc]');
+  if (acc) { openConto(conti.find(a => a.id === acc.dataset.acc)); return; }
+  const pe = e.target.closest('.prow .t[data-id]');
+  if (pe) { openForm(allRows.find(x => x.id === Number(pe.dataset.id))); return; }
   if (e.target.closest('.js-budget')) { openBudget(); return; }
   if (e.target.closest('.js-ric')) { openRicList(); return; }
   if (e.target.closest('#exclToggle')) { exclOn = !exclOn; metaSet('exclOn', exclOn).catch(() => {}); render(); return; }
@@ -1211,7 +1565,7 @@ $('#fileCsv').addEventListener('change', async e => {
       const inc = fromSpendee(await f.text()); seen += inc.length;
       const add = mergeNew(existing, inc); existing = existing.concat(add); added = added.concat(add);
     }
-    if (added.length) await dbBulkAdd(added);
+    if (added.length) await dbBulkAdd(added.map(r => ({ ...r, uid: uidNew(), mod: 0, conto: '' })));
     allRows = await dbAll(); render(); refreshMenu();
     const msg = 'Importati ' + added.length + ' movimenti, ' + (seen - added.length) + ' erano già presenti.';
     setMsg(msg); toast(msg);
@@ -1220,7 +1574,7 @@ $('#fileCsv').addEventListener('change', async e => {
 });
 
 $('#btnBackup').addEventListener('click', async () => {
-  const data = { app: 'spese', versione: 3, esportato: toIso(new Date()), movimenti: allRows.map(r => { const c = { ...r }; delete c.id; return c; }), budget: budgets, straordinarie: exclCats, ricorrenze: rics };
+  const data = { app: 'spese', versione: 4, esportato: toIso(new Date()), movimenti: allRows.map(r => { const c = { ...r }; delete c.id; return c; }), budget: budgets, straordinarie: exclCats, ricorrenze: rics, conti, contoDef, cancellati: [...deleted] };
   const ok = await saveFile('spese-backup-' + stamp() + '.json', new Blob([JSON.stringify(data)], { type: 'application/json' }));
   if (ok) { lastBackup = Date.now(); await metaSet('lastBackup', lastBackup); render(); refreshMenu(); setMsg('Backup salvato.'); }
 });
@@ -1229,26 +1583,169 @@ $('#btnExport').addEventListener('click', async () => {
   if (ok) setMsg('CSV esportato.');
 });
 $('#btnRestore').addEventListener('click', () => { $('#fileJson').value = ''; $('#fileJson').click(); });
+// Il ripristino legge il file, mostra cosa contiene e chiede: sostituire o unire.
+let pendingBackup = null, rsArmed = false, rsT;
+const validRic = x => x && x.id && isFinite(x.importo) && x.importo > 0 && x.categoria && x.giorno >= 1 && x.giorno <= 31 && /^\d{4}-\d\d-\d\d$/.test(x.da || '');
+const validConto = a => a && a.id && a.nome && TIPI[a.tipo];
 $('#fileJson').addEventListener('change', async e => {
   const f = e.target.files[0]; if (!f) return;
   try {
     const d = JSON.parse(await f.text());
     if (!d || !Array.isArray(d.movimenti)) throw new Error('il file non è un backup di questa app');
-    const inc = d.movimenti.filter(r => r && typeof r.data_ora === 'string' && isFinite(r.importo));
-    const add = mergeNew(allRows, inc);
-    if (add.length) await dbBulkAdd(add);
-    let nRic = 0;
+    d.movimenti = d.movimenti.filter(r => r && typeof r.data_ora === 'string' && isFinite(r.importo)).map(r => { const c = { ...r }; delete c.id; return c; });
+    pendingBackup = d; rsArmed = false;
+    const b = $('#rsReplace'); b.textContent = 'Sostituisci tutto'; b.classList.remove('armed');
+    const when = d.esportato ? DATE_FMT.format(new Date(d.esportato)) : 'data sconosciuta';
+    $('#rsInfo').textContent = 'Backup del ' + when + ': ' + d.movimenti.length + ' movimenti' + (Array.isArray(d.conti) ? ', ' + d.conti.length + ' conti' : '') + (Array.isArray(d.ricorrenze) ? ', ' + d.ricorrenze.length + ' ricorrenze' : '') + '. Sul telefono ora: ' + allRows.length + ' movimenti, ' + conti.length + ' conti.';
+    openSheet('sheetRestore');
+  } catch (x) { setMsg('Ripristino non riuscito: ' + x.message); }
+});
+$('#rsReplace').addEventListener('click', async () => {
+  const b = $('#rsReplace');
+  if (!rsArmed) {
+    rsArmed = true; b.textContent = 'Tocca ancora: i dati attuali saranno sostituiti'; b.classList.add('armed');
+    clearTimeout(rsT); rsT = setTimeout(() => { rsArmed = false; b.textContent = 'Sostituisci tutto'; b.classList.remove('armed'); }, 4000);
+    return;
+  }
+  const d = pendingBackup; if (!d) return;
+  try {
+    const now = Date.now(), list = d.movimenti.map(r => ({ ...r }));
+    migrateRows(list, now);
+    await dbClear(); await dbBulkAdd(list);
+    rics = Array.isArray(d.ricorrenze) ? d.ricorrenze.filter(validRic) : []; await metaSet('ric', rics);
+    conti = Array.isArray(d.conti) ? d.conti.filter(validConto) : []; await metaSet('conti', conti);
+    contoDef = conti.some(a => a.id === d.contoDef) ? d.contoDef : ''; await metaSet('contoDef', contoDef);
+    budgets = d.budget && typeof d.budget === 'object' && !Array.isArray(d.budget) ? d.budget : {}; await metaSet('budgets', budgets);
+    exclCats = Array.isArray(d.straordinarie) ? d.straordinarie : []; await metaSet('excl', exclCats);
+    deleted = new Set(Array.isArray(d.cancellati) ? d.cancellati : []); await metaSet('del', [...deleted]);
+    allRows = await dbAll(); await ensureRic(); await autoResolve();
+    pendingBackup = null; closeSheet(); render(); toast('Dati sostituiti con il backup');
+  } catch (x) { toast('Ripristino non riuscito: ' + x.message); }
+});
+$('#rsMerge').addEventListener('click', async () => {
+  const d = pendingBackup; if (!d) return;
+  try {
+    const now = Date.now();
+    (Array.isArray(d.cancellati) ? d.cancellati : []).forEach(u => deleted.add(u));
+    // Righe con uid: unione per uid. Righe senza uid (backup vecchi): confronto per contenuto come prima.
+    const withUid = d.movimenti.filter(r => r.uid), noUid = d.movimenti.filter(r => !r.uid);
+    const m = mergeByUid(allRows, withUid, deleted);
+    const legacy = mergeNew(allRows, noUid);
+    migrateRows(legacy, now);
+    const localDel = allRows.filter(r => r.uid && deleted.has(r.uid));
+    for (const r of localDel) await dbDel(r.id);
+    if (m.add.length || legacy.length) await dbBulkAdd(m.add.concat(legacy));
+    if (m.upd.length) await dbPutMany(m.upd);
+    let nRic = 0, nConti = 0;
     if (Array.isArray(d.ricorrenze)) {
-      const ids = new Set(rics.map(x => x.id));
-      const nr = d.ricorrenze.filter(x => x && x.id && !ids.has(x.id) && isFinite(x.importo) && x.importo > 0 && x.categoria && x.giorno >= 1 && x.giorno <= 31 && /^\d{4}-\d\d-\d\d$/.test(x.da || ''));
+      const ids = new Set(rics.map(x => x.id)), nr = d.ricorrenze.filter(x => validRic(x) && !ids.has(x.id));
       nRic = nr.length; rics = rics.concat(nr); await metaSet('ric', rics);
     }
-    await ensureRic();
-    if (d.budget && typeof d.budget === 'object' && !Array.isArray(d.budget)) { budgets = { ...d.budget, ...budgets }; await metaSet('budgets', budgets); }
+    if (Array.isArray(d.conti)) {
+      const ids = new Set(conti.map(a => a.id)), nc = d.conti.filter(a => validConto(a) && !ids.has(a.id));
+      nConti = nc.length; conti = conti.concat(nc); await metaSet('conti', conti);
+      if (!contoDef && conti.some(a => a.id === d.contoDef)) { contoDef = d.contoDef; await metaSet('contoDef', contoDef); }
+    }
+    if (d.budget && typeof d.budget === 'object' && !Array.isArray(d.budget)) { budgets = { ...budgets, ...d.budget }; await metaSet('budgets', budgets); }
     if (Array.isArray(d.straordinarie)) { exclCats = [...new Set(exclCats.concat(d.straordinarie))]; await metaSet('excl', exclCats); }
-    allRows = await dbAll(); render(); refreshMenu();
-    setMsg('Ripristinati ' + add.length + ' movimenti, ' + (inc.length - add.length) + ' erano già presenti.' + (nRic ? ' Aggiunte ' + nRic + ' ricorrenze o rate.' : ''));
-  } catch (x) { setMsg('Ripristino non riuscito: ' + x.message); }
+    await metaSet('del', [...deleted]);
+    allRows = await dbAll(); await ensureRic(); await autoResolve();
+    pendingBackup = null; closeSheet(); render();
+    const n = m.add.length + legacy.length;
+    toast('Aggiunti ' + n + ' movimenti, aggiornati ' + m.upd.length + (nConti ? ', ' + nConti + ' conti' : '') + (nRic ? ', ' + nRic + ' ricorrenze' : ''));
+  } catch (x) { toast('Unione non riuscita: ' + x.message); }
+});
+
+// ---------- doppioni ----------
+function openDup() {
+  const pairs = findDupes(rows.concat(pending)), now = Date.now();
+  $('#dupList').innerHTML = pairs.length
+    ? pairs.map(p => '<div class="list" style="margin-top:12px">' + rowHTML(p[0], now, true) + rowHTML(p[1], now, true) + '</div>').join('')
+    : '<div class="empty"><b>Nessun doppione</b>Non ho trovato movimenti ripetuti per errore.</div>';
+  openSheet('sheetDup');
+}
+$('#btnDup').addEventListener('click', openDup);
+$('#dupList').addEventListener('click', e => {
+  const r = e.target.closest('.row[data-id]'); if (!r) return;
+  openForm(allRows.find(x => x.id === Number(r.dataset.id)));
+});
+
+// ---------- conti ----------
+let contoEdit = null, contoTipo = 'corrente', cDelArmed = false, cDelT;
+function paintTipi() {
+  $('#cTipi').innerHTML = Object.keys(TIPI).map(k => '<button type="button" class="chip" data-ctipo="' + k + '" aria-pressed="' + (k === contoTipo) + '">' + TIPI[k] + '</button>').join('');
+  $('#cValL').textContent = contoTipo === 'corrente' ? 'Saldo' : contoTipo === 'debito' ? 'Debito residuo' : 'Valore';
+  $('#cVersW').hidden = !(contoTipo === 'titoli' || contoTipo === 'altro' || contoTipo === 'bene');
+  $('#cDefW').hidden = contoTipo !== 'corrente';
+  $('#cHint').textContent = contoTipo === 'corrente'
+    ? 'Da questo momento il saldo si aggiorna con le spese, le entrate e i giroconti assegnati al conto. Se non torna, correggilo qui.'
+    : contoTipo === 'debito' ? 'Scrivi quanto devi ancora. I giroconti verso questo conto lo riducono.'
+    : contoTipo === 'bene' ? 'Un bene, come l\'auto, conta nel patrimonio ma non tocca le spese del mese.'
+    : 'Aggiorna il valore quando vuoi, ad esempio una volta al mese. I giroconti verso questo conto si sommano al valore e al versato.';
+}
+function openConto(a) {
+  contoEdit = a || null; cDelArmed = false; contoTipo = a ? a.tipo : 'corrente';
+  const now = Date.now(), v = a ? accValueAt(a, allRows, now, now) : null;
+  $('#contoTitle').textContent = a ? a.nome : 'Nuovo conto';
+  $('#cErr').hidden = true;
+  const b = $('#cDel'); b.hidden = !a; b.textContent = 'Elimina'; b.classList.remove('armed');
+  $('#cNome').value = a ? a.nome : '';
+  $('#cVal').value = v === null ? '' : (contoTipo === 'debito' ? -v : v).toFixed(2).replace('.', ',');
+  $('#cData').value = fmtYmd(new Date());
+  const vers = a ? accVersato(a, allRows, now) : null;
+  $('#cVers').value = vers === null ? '' : vers.toFixed(2).replace('.', ',');
+  $('#cDef').checked = a ? a.id === contoDef : !conti.some(x => x.tipo === 'corrente');
+  paintTipi();
+  openSheet('sheetConto');
+}
+$('#cTipi').addEventListener('click', e => { const c = e.target.closest('[data-ctipo]'); if (c) { contoTipo = c.dataset.ctipo; paintTipi(); } });
+$('#contoForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = m => { const p = $('#cErr'); p.textContent = m; p.hidden = false; };
+  const nome = $('#cNome').value.trim(), raw = $('#cVal').value.trim(), val = raw ? parseAmount(raw) : NaN, dk = $('#cData').value;
+  const vRaw = $('#cVers').value.trim(), vers = vRaw ? parseAmount(vRaw) : null;
+  if (!nome) return err('Dai un nome al conto.');
+  if (raw && !isFinite(val)) return err('Il valore non è un numero.');
+  if (vRaw && !isFinite(vers)) return err('Il versato non è un numero.');
+  if (raw && !/^\d{4}-\d\d-\d\d$/.test(dk)) return err('Indica la data del valore.');
+  const now = Date.now();
+  const a = contoEdit ? { ...contoEdit } : { id: 'c' + Date.now().toString(36), storico: {}, anc: null };
+  a.nome = nome; a.tipo = contoTipo;
+  if (raw) {
+    // Il form salva gli orari al minuto: ancorando a inizio minuto, una spesa inserita subito dopo conta.
+    const ts = dk === fmtYmd(new Date()) ? Math.floor(now / 60000) * 60000 - 1 : Math.min(endOfDay(dk), now);
+    const saldo = Math.round((contoTipo === 'debito' ? -Math.abs(val) : val) * 100) / 100;
+    const cur = contoEdit ? accValueAt(contoEdit, allRows, ts, now) : null;
+    const versChanged = contoEdit ? (vers === null ? null : vers) !== accVersato(contoEdit, allRows, now) : vers !== null;
+    // Si sposta l'ancoraggio solo se valore, data o versato cambiano davvero.
+    if (!contoEdit || !contoEdit.anc || cur === null || Math.abs(cur - saldo) >= 0.005 || versChanged) {
+      a.storico = snapshotBefore(a, allRows, ts, now);
+      a.anc = { ts, saldo, versato: vers === null ? null : Math.round(vers * 100) / 100 };
+      a.storico[monthKey(new Date(ts).toISOString())] = saldo;
+    }
+  }
+  const nc = contoEdit ? conti.map(x => x.id === a.id ? a : x) : conti.concat([a]);
+  try {
+    await metaSet('conti', nc); conti = nc;
+    if (a.tipo === 'corrente' && $('#cDef').checked) { contoDef = a.id; await metaSet('contoDef', contoDef); }
+    else if (contoDef === a.id && (!$('#cDef').checked || a.tipo !== 'corrente')) { contoDef = ''; await metaSet('contoDef', ''); }
+  } catch (x) { return err('Non sono riuscito a salvare. Riprova.'); }
+  closeSheet(); render(); toast('Salvato');
+});
+$('#cDel').addEventListener('click', async () => {
+  const b = $('#cDel'), a = contoEdit; if (!a) return;
+  const used = allRows.filter(r => r.conto === a.id || r.contoA === a.id).length + rics.filter(r => r.conto === a.id).length;
+  if (used) { $('#cErr').textContent = 'Questo conto è usato da ' + used + ' movimenti o ricorrenze: non lo elimino. Se è chiuso, porta il valore a zero.'; $('#cErr').hidden = false; return; }
+  if (!cDelArmed) {
+    cDelArmed = true; b.textContent = 'Tocca ancora per eliminare'; b.classList.add('armed');
+    clearTimeout(cDelT); cDelT = setTimeout(() => { cDelArmed = false; b.textContent = 'Elimina'; b.classList.remove('armed'); }, 3500);
+    return;
+  }
+  try {
+    conti = conti.filter(x => x.id !== a.id); await metaSet('conti', conti);
+    if (contoDef === a.id) { contoDef = ''; await metaSet('contoDef', ''); }
+  } catch (x) { return toast('Eliminazione non riuscita'); }
+  closeSheet(); render(); toast('Conto eliminato');
 });
 
 // ---------- budget e categorie straordinarie ----------
@@ -1314,6 +1811,8 @@ function openRicForm(r) {
   $('#rEti').value = r ? (r.etichette || '') : '';
   $('#rDa').value = r ? r.da : fmtYmd(new Date());
   $('#rFine').value = r && r.fine ? r.fine : '';
+  $('#rContoW').hidden = !conti.length;
+  $('#rConto').innerHTML = contoOptions(r ? (r.conto || '') : contoDef, true);
   $('#rHint').textContent = r ? 'Salvando, le scadenze future già create vengono rifatte con i nuovi dati. Quelle passate restano come sono.' : 'Il giorno del mese è quello della prima scadenza. Se il mese è più corto, vale l\'ultimo giorno.';
   $('#rcatlist').innerHTML = [...new Set(categoriesFor(allRows, 'Expense').concat(categoriesFor(allRows, 'Income')))].map(c => '<option value="' + esc(c) + '">').join('');
   setRicTipo(r ? r.tipo : 'Expense');
@@ -1321,7 +1820,7 @@ function openRicForm(r) {
 }
 async function dropFutureRic(id) {
   const now = Date.now(), gone = allRows.filter(r => r.ric === id && Date.parse(r.data_ora) > now);
-  for (const r of gone) await dbDel(r.id);
+  for (const r of gone) await deleteRow(r);
   allRows = allRows.filter(r => !gone.includes(r));
 }
 document.querySelectorAll('[data-rtipo]').forEach(b => b.addEventListener('click', () => setRicTipo(b.dataset.rtipo)));
@@ -1338,7 +1837,8 @@ $('#ricForm').addEventListener('submit', async e => {
   if (fine && fine < da.slice(0, 7)) return err('L\'ultimo mese è precedente alla prima scadenza.');
   const r = {
     id: ricEdit ? ricEdit.id : 'r' + Date.now().toString(36), tipo: ricTipo, importo: Math.round(amt * 100) / 100, categoria: cat,
-    nota: $('#rNote').value.trim(), etichette: $('#rEti').value.trim(), giorno: Number(da.slice(8)), da, fine, skip: []
+    nota: $('#rNote').value.trim(), etichette: $('#rEti').value.trim(), giorno: Number(da.slice(8)), da, fine,
+    skip: ricEdit ? (ricEdit.skip || []) : [], conto: conti.length ? $('#rConto').value : (ricEdit && ricEdit.conto) || ''
   };
   try {
     if (ricEdit) await dropFutureRic(r.id);
@@ -1381,7 +1881,19 @@ $('#btnInstall').addEventListener('click', async () => {
     db = await openDB();
     allRows = await dbAll();
     rics = (await metaGet('ric')) || [];
+    conti = (await metaGet('conti')) || [];
+    contoDef = (await metaGet('contoDef')) || '';
+    deleted = new Set((await metaGet('del')) || []);
+    if (((await metaGet('schema')) || 3) < 4) {
+      const ch = migrateRows(allRows, Date.now());
+      if (ch.length) await dbPutMany(ch);
+      await metaSet('schema', 4);
+    }
+    const extra = ricDuplicates(allRows);
+    for (const r of extra) await dbDel(r.id);
+    if (extra.length) allRows = allRows.filter(r => !extra.includes(r));
     await ensureRic();
+    await autoResolve();
     lastBackup = (await metaGet('lastBackup')) || null;
     budgets = (await metaGet('budgets')) || {};
     exclCats = (await metaGet('excl')) || [];

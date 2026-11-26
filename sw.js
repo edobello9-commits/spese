@@ -1,6 +1,8 @@
-// Service worker: l'app funziona offline. Prima prova la rete (così gli
-// aggiornamenti arrivano), se manca la connessione usa la copia salvata.
-const CACHE = 'spese-v3';
+// Service worker: l'app si apre subito dalla copia salvata, anche con poco segnale,
+// e intanto scarica la versione nuova per la prossima apertura.
+// Cambiare CACHE a ogni rilascio: così il nuovo service worker subentra e l'app
+// mostra il banner «Nuova versione disponibile».
+const CACHE = 'spese-v4';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -16,14 +18,19 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // La pagina, con o senza ?nuova=1, è sempre la stessa index.html.
+  const key = req.mode === 'navigate' ? './index.html' : req;
   e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+    caches.open(CACHE).then(async (c) => {
+      const hit = await c.match(key, { ignoreSearch: req.mode === 'navigate' });
+      const net = fetch(req).then((res) => {
+        if (res && res.ok) c.put(key, res.clone());
         return res;
-      })
-      .catch(() => caches.match(e.request).then((m) => m || caches.match('./index.html')))
+      });
+      if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
+      return net.catch(() => c.match('./index.html'));
+    })
   );
 });
