@@ -217,6 +217,16 @@ details.tbl summary{cursor:pointer;color:var(--accent);font-weight:650;padding:8
 .acc .n b{color:var(--ink);font-weight:600}
 .l-net{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
 .chart .d-net{fill:var(--accent)}
+.chart .s-liq{fill:var(--c1)}
+.chart .s-inv{fill:var(--c3)}
+.chart .s-beni{fill:var(--c4)}
+.chart .s-deb{fill:var(--out)}
+.legend .k-liq{--sw:var(--c1)}
+.legend .k-inv{--sw:var(--c3)}
+.legend .k-beni{--sw:var(--c4)}
+.legend .k-net{--sw:var(--accent)}
+.bar.v i{background:var(--c3)}
+.bar.vs i{background:var(--muted);opacity:.55}
 </style>
 </head>
 <body>
@@ -874,7 +884,7 @@ function netSeries(conti, all, nowMs, count) {
   for (let i = count - 1; i >= 0; i--) {
     const k = shiftMonth(nowMk, -i), end = Math.min(endOfDay(k + '-' + pad(daysIn(k))), nowMs);
     const p = patrimonio(conti, all, end, nowMs);
-    out.push({ k, tot: p.tot, missing: p.missing, any: p.missing < conti.length });
+    out.push({ k, tot: p.tot, g: p.g, missing: p.missing, any: p.missing < conti.length });
   }
   return out;
 }
@@ -949,6 +959,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 
 let pending = [], transfers = [], conti = [], contoDef = '', deleted = new Set();
 let rows = [], allRows = [], upcoming = [], rics = [], lastBackup = null, view = 'home', query = '', budgets = {}, exclCats = [], exclOn = true;
+let accKind = 'tipo', accSel = -1;
 let gPreset = '3m', gFrom = '', gTo = '', gKind = 'Expense', gGran = 'auto', gSel = -1, gScrollKeep = null;
 let cur = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
 const curKey = () => cur.y + '-' + pad(cur.m + 1);
@@ -1259,17 +1270,49 @@ function viewMesi(mk) {
 }
 
 // ---------- conti e patrimonio ----------
-function svgNet(sr) {
-  const W = 340, H = 160, L = 38, R = 10, T = 10, B = 22, pw = W - L - R, ph = H - T - B;
-  const pts = sr.map((o, i) => ({ i, o })).filter(p => p.o.any);
-  const vals = pts.map(p => p.o.tot), lo = Math.min(0, ...vals), ymax = niceMax(Math.max(...vals, 100) - lo);
-  const x = i => L + (sr.length === 1 ? pw / 2 : i / (sr.length - 1) * pw), y = v => T + ph - (v - lo) / ymax * ph;
-  let g = '';
-  for (const f of [0, .5, 1]) { const v = lo + ymax * f, yy = f1(y(v)); g += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/><text class="ax" x="' + (L - 5) + '" y="' + f1(y(v) + 3) + '" text-anchor="end">' + fmtK(v) + '</text>'; }
-  sr.forEach((o, i) => { if (i % 2 === sr.length % 2 || i === sr.length - 1) { const q = mkParts(o.k); g += '<text class="ax" x="' + f1(x(i)) + '" y="' + (H - 7) + '" text-anchor="middle">' + MON_S.format(new Date(q.y, q.m - 1, 1)).replace('.', '') + '</text>'; } });
-  if (pts.length > 1) g += '<path class="l-net" d="' + pts.map((p, j) => (j ? 'L' : 'M') + f1(x(p.i)) + ' ' + f1(y(p.o.tot))).join(' ') + '"/>';
-  pts.forEach(p => { g += '<circle class="d-net" cx="' + f1(x(p.i)) + '" cy="' + f1(y(p.o.tot)) + '" r="3"/>'; });
-  return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Patrimonio a fine mese">' + g + '</svg>';
+// Colonne impilate per tipo (liquidità, investimenti, beni) con la linea del netto (debiti inclusi).
+function svgStack(sr, sel) {
+  const W = 340, H = 180, L = 38, R = 6, T = 10, B = 22, pw = W - L - R, ph = H - T - B, gw = pw / sr.length, bw = Math.min(22, gw * .6);
+  const pos = o => Math.max(0, o.g.liq) + Math.max(0, o.g.inv) + Math.max(0, o.g.beni);
+  const ymax = niceMax(Math.max(...sr.map(o => Math.max(pos(o), o.tot)), 100));
+  const y = v => T + ph - Math.max(0, v) / ymax * ph;
+  let g = gridLines(ymax, y, L, W, R), line = '';
+  sr.forEach((o, i) => {
+    const gx = L + i * gw, cx = gx + gw / 2, q = mkParts(o.k);
+    g += '<g class="sk" data-si="' + i + '" style="cursor:pointer">' + (i === sel ? '<rect class="b-sel" x="' + f1(gx) + '" y="' + T + '" width="' + f1(gw) + '" height="' + (ph + B - 2) + '" rx="6"/>' : '<rect fill="transparent" x="' + f1(gx) + '" y="' + T + '" width="' + f1(gw) + '" height="' + (ph + B - 2) + '"/>');
+    let base = 0;
+    for (const k of ['liq', 'inv', 'beni']) {
+      const v = Math.max(0, o.g[k]); if (!v) continue;
+      g += '<rect class="s-' + k + '" x="' + f1(cx - bw / 2) + '" y="' + f1(y(base + v)) + '" width="' + f1(bw) + '" height="' + f1(Math.max(1, y(base) - y(base + v))) + '"/>';
+      base += v;
+    }
+    g += '<text class="ax' + (i === sel ? ' sel' : '') + '" x="' + f1(cx) + '" y="' + (H - 7) + '" text-anchor="middle">' + MON_S.format(new Date(q.y, q.m - 1, 1)).replace('.', '') + '</text></g>';
+    line += (line ? 'L' : 'M') + f1(cx) + ' ' + f1(y(o.tot));
+  });
+  if (sr.length > 1) g += '<path class="l-net" d="' + line + '" style="pointer-events:none"/>';
+  sr.forEach((o, i) => { g += '<circle class="d-net" cx="' + f1(L + i * gw + gw / 2) + '" cy="' + f1(y(o.tot)) + '" r="3" style="pointer-events:none"/>'; });
+  return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Patrimonio a fine mese per tipo">' + g + '</svg>';
+}
+// Ciambella dell'allocazione: per tipo o per singolo conto. Solo valori positivi.
+function allocSlices(now) {
+  const GN = { liq: 'Liquidità', inv: 'Investimenti', beni: 'Beni' }, GS = { liq: 1, inv: 3, beni: 4 };
+  if (accKind === 'tipo') {
+    const p = patrimonio(conti, allRows, now, now);
+    return ['liq', 'inv', 'beni'].filter(k => p.g[k] > 0).map(k => ({ cat: GN[k], v: p.g[k], slot: GS[k] }));
+  }
+  const list = conti.map(a => ({ cat: a.nome, v: accValueAt(a, allRows, now, now) || 0 })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  const out = list.slice(0, 7).map((x, i) => ({ ...x, slot: i + 1 }));
+  const rest = list.slice(7);
+  if (rest.length) out.push({ cat: 'Altri', v: rest.reduce((t, x) => t + x.v, 0), slot: 0, n: rest.length });
+  return out;
+}
+function svgAlloc(sl, total) {
+  const cx = 100, cy = 100, R = 88, r = 56;
+  let g = '', a = -Math.PI / 2;
+  if (sl.length === 1) g = '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((R + r) / 2) + '" fill="none" stroke="var(--c' + sl[0].slot + ')" stroke-width="' + (R - r) + '"/>';
+  else for (const s of sl) { const b = a + s.v / total * 2 * Math.PI; g += '<path fill="var(--c' + s.slot + ')" d="' + arcPath(cx, cy, R, r, a, b) + '"/>'; a = b; }
+  g += '<text class="ctr-big" x="' + cx + '" y="' + (cy + 4) + '">' + fmt(total) + '</text><text class="ctr-sm" x="' + cx + '" y="' + (cy + 20) + '">attivi</text>';
+  return '<svg class="donut" viewBox="0 0 200 200" role="img" aria-label="Ripartizione del patrimonio">' + g + '</svg>';
 }
 
 function accRowHTML(a, now) {
@@ -1305,9 +1348,38 @@ function viewConti() {
   if (p.missing) h += '<p class="mut">' + p.missing + (p.missing === 1 ? ' conto non ha' : ' conti non hanno') + ' ancora un valore e non ' + (p.missing === 1 ? 'è contato' : 'sono contati') + '.</p>';
   h += '</section>';
 
-  const sr = netSeries(conti, allRows, now, 12);
-  if (sr.filter(o => o.any).length > 1) {
-    h += '<section class="card"><h3>Andamento</h3>' + svgNet(sr) + '<p class="mut">Valore a fine mese. Per i mesi prima del primo valore inserito un conto non viene contato, quindi la linea può salire a gradino.</p></section>';
+  const sl = allocSlices(now), slTot = sl.reduce((t, x) => t + x.v, 0);
+  if (sl.length) {
+    h += '<section class="card"><h3>Come è diviso</h3><div class="seg" role="group" aria-label="Raggruppa"><button type="button" data-acck="tipo" aria-pressed="' + (accKind === 'tipo') + '">Per tipo</button><button type="button" data-acck="conto" aria-pressed="' + (accKind === 'conto') + '">Per conto</button></div>' +
+      svgAlloc(sl, slTot) + '<div>' + sl.map(x => {
+        const pc = x.v / slTot * 100;
+        return '<div class="lg"><i style="background:var(--c' + x.slot + ')"></i><span class="nm">' + esc(x.cat) + (x.n ? ' <span class="mut">(' + x.n + ')</span>' : '') + '</span><span class="pc">' + pc.toFixed(pc < 10 ? 1 : 0).replace('.', ',') + '%</span><span class="am">' + fmt(x.v) + '</span></div>';
+      }).join('') + '</div>' + (p.g.deb ? '<p class="mut">I debiti (' + fmt(-p.g.deb) + ') non sono nel grafico: sono già sottratti dal patrimonio.</p>' : '') + '</section>';
+  }
+
+  let sr = netSeries(conti, allRows, now, 12);
+  const first = sr.findIndex(o => o.any);
+  if (first >= 0) {
+    sr = sr.slice(first);
+    const sel = accSel >= 0 && accSel < sr.length ? accSel : sr.length - 1, o = sr[sel];
+    const mo = mkParts(o.k), lbl = MONTH_ONLY.format(new Date(mo.y, mo.m - 1, 1)) + ' ' + mo.y;
+    h += '<section class="card"><h3>Andamento</h3>' + svgStack(sr, sel) +
+      '<div class="legend"><span class="k-liq">Liquidità</span><span class="k-inv">Investimenti</span>' + (sr.some(x => x.g.beni > 0) ? '<span class="k-beni">Beni</span>' : '') + '<span class="k-net">Patrimonio netto</span></div>' +
+      '<div class="selbox"><b>' + esc(ucf(lbl)) + (o.k === monthKey(new Date(now).toISOString()) ? ' (a oggi)' : '') + '</b>Netto ' + fmt(o.tot) + ' · Liquidità ' + fmt(o.g.liq) + ' · Investimenti ' + fmt(o.g.inv) + (o.g.beni ? ' · Beni ' + fmt(o.g.beni) : '') + (o.g.deb ? ' · Debiti ' + fmt(o.g.deb) : '') +
+      (sel > 0 ? '<br>Rispetto al mese prima: ' + signed(o.tot - sr[sel - 1].tot) : '') + '</div>' +
+      '<p class="mut">Valori a fine mese. ' + (sr.length < 3 ? 'Il grafico si riempie mese dopo mese da quando inserisci i valori dei conti. ' : '') + 'Un conto senza valore in un mese non è contato, quindi la colonna può salire a gradino. Tocca una colonna per i dettagli.</p></section>';
+  }
+
+  const inv = conti.map(a => ({ a, v: accValueAt(a, allRows, now, now), vers: accVersato(a, allRows, now) })).filter(x => x.v !== null && x.vers !== null && x.vers > 0);
+  if (inv.length) {
+    const max = Math.max(...inv.map(x => Math.max(x.v, x.vers)), 1), tv = inv.reduce((t, x) => t + x.v, 0), tvers = inv.reduce((t, x) => t + x.vers, 0);
+    h += '<section class="card"><h3>Investimenti: versato e valore</h3><div class="bigsm ' + (tv - tvers < 0 ? 'out' : 'in') + '">' + signed(tv - tvers) + '</div><div class="sub">' + (tvers ? ((tv - tvers) / tvers * 100).toFixed(1).replace('.', ',') + '% su ' + fmt(tvers) + ' versati' : '') + '</div>' +
+      inv.map(x => {
+        const gain = x.v - x.vers;
+        return '<div class="cat"><div class="h"><span>' + esc(x.a.nome) + '</span><span class="amt">' + fmt(x.v) + '</span></div>' +
+          '<div class="bar vs"><i style="width:' + Math.max(2, x.vers / max * 100).toFixed(1) + '%"></i></div><div class="bar v thin"><i style="width:' + Math.max(2, x.v / max * 100).toFixed(1) + '%"></i></div>' +
+          '<div class="sm">Versato ' + fmt(x.vers) + ' · <span class="' + (gain < 0 ? 'out' : 'in') + '">' + signed(gain) + ' (' + (gain / x.vers * 100).toFixed(1).replace('.', ',') + '%)</span></div></div>';
+      }).join('') + '<p class="mut">Barra grigia: versato. Barra verde: valore attuale. Rendimento lordo, senza tasse.</p></section>';
   }
 
   const groups = [['liq', 'Liquidità'], ['inv', 'Investimenti'], ['beni', 'Beni'], ['deb', 'Debiti']];
@@ -1528,6 +1600,10 @@ $('#content').addEventListener('click', e => {
   if (e.target.closest('#emptyImport')) { openMenu(); return; }
   if (e.target.closest('#accNew')) { openConto(null); return; }
   if (e.target.closest('#accTr')) { openForm(null, 'Transfer'); return; }
+  const ak = e.target.closest('[data-acck]');
+  if (ak) { accKind = ak.dataset.acck; render(); return; }
+  const sk = e.target.closest('.sk[data-si]');
+  if (sk) { const i = Number(sk.dataset.si); accSel = i === accSel ? -1 : i; render(); return; }
   const acc = e.target.closest('[data-acc]');
   if (acc) { openConto(conti.find(a => a.id === acc.dataset.acc)); return; }
   const pe = e.target.closest('.prow .t[data-id]');
